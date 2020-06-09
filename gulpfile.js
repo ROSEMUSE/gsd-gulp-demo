@@ -63,40 +63,50 @@ const data = {
 }
 
 const clean = () => {
-    return del(['dist'])
+    return del(['dist', 'temp'])
 }
 
 const style = () => {
     return src('src/assets/styles/*.scss', { base: 'src' })
         .pipe(plugins.sass({ outputStyle: 'expanded' }))
-        .pipe(dest('dist'))
+        .pipe(dest('temp'))
         .pipe(bs.reload({ stream: true }))//检测变化 向浏览器发送文件流
 }
 
 const script = () => {
     return src('src/assets/scripts/*.js', { base: 'src' })
         .pipe(plugins.babel({ presets: ['@babel/preset-env'] }))
-        .pipe(dest('dist'))
+        .pipe(dest('temp'))
 }
 
 const page = () => {
     return src('src/*.html', { base: 'src' })
         .pipe(plugins.swig({ data }))
-        .pipe(dest('dist'))
+        .pipe(dest('temp'))
 }
 
 const image = () => {
     //**所有文件通配 
     return src('src/assets/images/**')
         .pipe(plugins.imagemin())
-        .pipe(dest('dist'))
+        .pipe(dest('dist/images'))
 }
 
 const font = () => {
     //**所有文件通配 
     return src('src/assets/fonts/**')
         .pipe(plugins.imagemin())
-        .pipe(dest('dist'))
+        .pipe(dest('dist/fonts'))
+}
+
+const useref = () => {
+    return src('temp/*.html')
+        .pipe(plugins.useref({ searchPath: ['temp', ''] }))
+        //html js css 判断转换流（压缩文件）
+        .pipe(plugins.if(/\.js$/, plugins.uglify()))
+        .pipe(plugins.if(/\.css$/, plugins.cleanCss()))
+        .pipe(plugins.if(/\.html$/, plugins.htmlmin({ collapseWhitespace: true, minifyCSS: true, minifyJS: true })))
+        .pipe(dest('release'))
 }
 
 const extra = () => {
@@ -113,17 +123,17 @@ const serve = () => {
     // watch('src/assets/fonts/**', font)
     // watch('public/**', extra)
     watch([
-      'src/assets/images/**',
-      'src/assets/fonts/**',
-      'public/**'
+        'src/assets/images/**',
+        'src/assets/fonts/**',
+        'public/**'
     ], bs.reload)//reload方法会通知所有的浏览器相关文件被改动，要么导致浏览器刷新，要么注入文件，实时更新改动。
-  
+
     bs.init({
         notify: false,////不显示在浏览器中的任何通知。
         port: 9000,//使用（而不是一个自动检测到Browsersync）特定端口 
         files: 'dist/**',//检测文件变化 页面即时更改
         server: {
-            baseDir: ['dist','src','public'],//数组的好处：src下面的图片是否压缩与public文件开发过程中没有影响 提高效率
+            baseDir: ['temp', 'src', 'public'],//数组的好处：src下面的图片是否压缩与public文件开发过程中没有影响 提高效率
             routes: {
                 '/node_modules': 'node_modules'
             }
@@ -132,15 +142,14 @@ const serve = () => {
     })
 }
 
-const compile = parallel(style, script, page, image, font)
+const compile = parallel(style, script, page)
 //上线之前执行的任务
-const build = series(clean, parallel(compile, extra))
+const build = series(clean, parallel(series(compile, useref), extra, image, font))
 
 const develop = series(compile, serve)
 
 module.exports = {
     clean,
     build,
-    serve,
     develop
 }
