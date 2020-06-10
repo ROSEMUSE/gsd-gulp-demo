@@ -135,7 +135,7 @@ const serve = () => {
         server: {
             baseDir: ['temp', 'src', 'public'],//数组的好处：src下面的图片是否压缩与public文件开发过程中没有影响 提高效率
             routes: {
-                '/node_modules': 'node_modules'
+                '/node_modules': 'node_modules'//指定文件夹（/node_modules 代指为根目录下的node_modules)
             }
         }
 
